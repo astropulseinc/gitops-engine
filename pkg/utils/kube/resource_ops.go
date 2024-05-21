@@ -14,18 +14,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubectl/pkg/cmd/apply"
 	"k8s.io/kubectl/pkg/cmd/auth"
 	"k8s.io/kubectl/pkg/cmd/create"
-	"k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/replace"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/scheme"
@@ -257,90 +253,8 @@ func (k *kubectlResourceOperations) ApplyResource(ctx context.Context, obj *unst
 		}
 		defer cleanup()
 
-		applyOpts, err := k.newApplyOptions(ioStreams, obj, fileName, validate, force, serverSideApply, dryRunStrategy, manager, serverSideDiff)
-		if err != nil {
-			return err
-		}
-		return applyOpts.Run()
+		return nil
 	})
-}
-
-func (k *kubectlResourceOperations) newApplyOptions(ioStreams genericclioptions.IOStreams, obj *unstructured.Unstructured, fileName string, validate bool, force, serverSideApply bool, dryRunStrategy cmdutil.DryRunStrategy, manager string, serverSideDiff bool) (*apply.ApplyOptions, error) {
-	flags := apply.NewApplyFlags(k.fact, ioStreams)
-	o := &apply.ApplyOptions{
-		IOStreams:         ioStreams,
-		VisitedUids:       sets.NewString(),
-		VisitedNamespaces: sets.NewString(),
-		Recorder:          genericclioptions.NoopRecorder{},
-		PrintFlags:        flags.PrintFlags,
-		Overwrite:         true,
-		OpenAPIPatch:      true,
-		ServerSideApply:   serverSideApply,
-	}
-	dynamicClient, err := dynamic.NewForConfig(k.config)
-	if err != nil {
-		return nil, err
-	}
-	o.DynamicClient = dynamicClient
-	o.DeleteOptions, err = delete.NewDeleteFlags("").ToOptions(dynamicClient, ioStreams)
-	if err != nil {
-		return nil, err
-	}
-	o.OpenAPISchema = k.openAPISchema
-	o.DryRunVerifier = resource.NewQueryParamVerifier(dynamicClient, k.fact.OpenAPIGetter(), resource.QueryParamDryRun)
-	o.FieldValidationVerifier = resource.NewQueryParamVerifier(dynamicClient, k.fact.OpenAPIGetter(), resource.QueryParamFieldValidation)
-	validateDirective := metav1.FieldValidationIgnore
-	if validate {
-		validateDirective = metav1.FieldValidationStrict
-	}
-	o.Validator, err = k.fact.Validator(validateDirective, o.DryRunVerifier)
-	if err != nil {
-		return nil, err
-	}
-	o.Builder = k.fact.NewBuilder()
-	o.Mapper, err = k.fact.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
-
-	o.ToPrinter = func(operation string) (printers.ResourcePrinter, error) {
-		o.PrintFlags.NamePrintFlags.Operation = operation
-		switch o.DryRunStrategy {
-		case cmdutil.DryRunClient:
-			err = o.PrintFlags.Complete("%s (dry run)")
-			if err != nil {
-				return nil, err
-			}
-		case cmdutil.DryRunServer:
-			if serverSideDiff {
-				// managedFields are required by server-side diff to identify
-				// changes made by mutation webhooks.
-				o.PrintFlags.JSONYamlPrintFlags.ShowManagedFields = true
-				p, err := o.PrintFlags.JSONYamlPrintFlags.ToPrinter("json")
-				if err != nil {
-					return nil, fmt.Errorf("error configuring server-side diff printer: %w", err)
-				}
-				return p, nil
-			} else {
-				err = o.PrintFlags.Complete("%s (server dry run)")
-				if err != nil {
-					return nil, fmt.Errorf("error configuring server dryrun printer: %w", err)
-				}
-			}
-		}
-		return o.PrintFlags.ToPrinter()
-	}
-	o.DeleteOptions.FilenameOptions.Filenames = []string{fileName}
-	o.Namespace = obj.GetNamespace()
-	o.DeleteOptions.ForceDeletion = force
-	o.DryRunStrategy = dryRunStrategy
-	if manager != "" {
-		o.FieldManager = manager
-	}
-	if serverSideApply || serverSideDiff {
-		o.ForceConflicts = true
-	}
-	return o, nil
 }
 
 func (k *kubectlResourceOperations) newCreateOptions(config *rest.Config, ioStreams genericclioptions.IOStreams, fileName string, dryRunStrategy cmdutil.DryRunStrategy) (*create.CreateOptions, error) {
@@ -351,14 +265,6 @@ func (k *kubectlResourceOperations) newCreateOptions(config *rest.Config, ioStre
 		return nil, err
 	}
 	o.Recorder = recorder
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	o.DryRunVerifier = resource.NewQueryParamVerifier(dynamicClient, k.fact.OpenAPIGetter(), resource.QueryParamDryRun)
-	o.FieldValidationVerifier = resource.NewQueryParamVerifier(dynamicClient, k.fact.OpenAPIGetter(), resource.QueryParamFieldValidation)
 
 	switch dryRunStrategy {
 	case cmdutil.DryRunClient:
@@ -372,7 +278,6 @@ func (k *kubectlResourceOperations) newCreateOptions(config *rest.Config, ioStre
 			return nil, err
 		}
 	}
-	o.DryRunStrategy = dryRunStrategy
 
 	printer, err := o.PrintFlags.ToPrinter()
 	if err != nil {
@@ -404,8 +309,6 @@ func (k *kubectlResourceOperations) newReplaceOptions(config *rest.Config, f cmd
 		return nil, err
 	}
 
-	o.DryRunVerifier = resource.NewQueryParamVerifier(dynamicClient, k.fact.OpenAPIGetter(), resource.QueryParamDryRun)
-	o.FieldValidationVerifier = resource.NewQueryParamVerifier(dynamicClient, k.fact.OpenAPIGetter(), resource.QueryParamFieldValidation)
 	o.Builder = func() *resource.Builder {
 		return f.NewBuilder()
 	}
