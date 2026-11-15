@@ -1,8 +1,6 @@
 module github.com/argoproj/gitops-engine
 
-go 1.21
-
-toolchain go1.21.6
+go 1.25.0
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -12,7 +10,7 @@ require (
 	github.com/google/gnostic v0.5.7-v3refs
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/sync v0.5.0
+	golang.org/x/sync v0.20.0
 	google.golang.org/protobuf v1.31.0
 	k8s.io/api v0.29.1
 	k8s.io/apiextensions-apiserver v0.29.1
@@ -82,11 +80,11 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
-	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
